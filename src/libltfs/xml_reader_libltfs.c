@@ -101,7 +101,7 @@ static int decode_entry_name(char **new_name, const char *name)
 	buf_decode[2] = '\0';
 
 	while (i < len) {
-		if (name[i] == '%' && i < (len - 2)) {
+		if (name[i] == '%') {
 			encoded = true;
 			i++;
 			continue;
@@ -114,7 +114,7 @@ static int decode_entry_name(char **new_name, const char *name)
 			encoded = false;
 
 			/*
-			 * Allow '/' (0x2f), US (0x1f) and '\0' (0x00) but revert to percent encoded
+			 * Allow '/' (0x2f) and US (0x1f) but revert to percent encoded
 			 * string for supporting bad manner writer
 			 */
 			/*
@@ -122,7 +122,7 @@ static int decode_entry_name(char **new_name, const char *name)
 			 * US shall be accepted as a part of filename.
 			 * Now LTFS rejects US because of a historical issue. (See Issue #106 on GitHub)
 			 */
-			if (tmp_name[j] == '/' || tmp_name[j] == 0x1f || tmp_name[j] == 0x00) {
+			if (tmp_name[j] == '/' || tmp_name[j] == 0x1f) {
 				tmp_name[j] = '%';
 				tmp_name[j+1] = buf_decode[0];
 				tmp_name[j+2] = buf_decode[1];
@@ -183,7 +183,7 @@ static int _xml_parse_nametype(xmlTextReaderPtr reader, struct ltfs_name *n, boo
 	encoded_name = strdup(value);
 	if (!encoded_name) {
 		ltfsmsg(LTFS_ERR, 10001E, __FUNCTION__);
-		return -LTFS_NO_MEMORY;
+		return -1;
 	}
 
 	if (n->percent_encode) {
@@ -203,6 +203,7 @@ static int _xml_parse_nametype(xmlTextReaderPtr reader, struct ltfs_name *n, boo
 			free(n->name);
 			n->name = NULL;
 		}
+		ret = -1;
 	}
 
 	free(decoded_name);
@@ -896,10 +897,9 @@ static int _xml_parse_file(xmlTextReaderPtr reader, struct ltfs_index *idx, stru
 		if (! strcmp(name, "name")) {
 			check_required_tag(0);
 
-			ret = _xml_parse_nametype(reader, &file->name, false);
-			if (ret < 0) {
+			if (_xml_parse_nametype(reader, &file->name, false) < 0) {
 				free(file);
-				return ret;
+				return -1;
 			}
 
 			filename->name = file->name.name;
@@ -1079,7 +1079,6 @@ static int _xml_parse_dirtree(xmlTextReaderPtr reader, struct dentry *parent,
 
 static int _xml_parse_dir_contents(xmlTextReaderPtr reader, struct dentry *dir, struct ltfs_index *idx)
 {
-	int ret = 0;
 	struct name_list *list = NULL, *entry_name = NULL;
 	CHECK_ARG_NULL(dir, -LTFS_NULL_ARG);
 	declare_parser("contents");
@@ -1097,10 +1096,9 @@ static int _xml_parse_dir_contents(xmlTextReaderPtr reader, struct dentry *dir, 
 				ltfsmsg(LTFS_ERR, 10001E, "_xml_parse_dir_contents: file");
 				return -LTFS_NO_MEMORY;
 			}
-			ret = _xml_parse_file(reader, idx, dir, entry_name);
-			if (ret < 0) {
+			if (_xml_parse_file(reader, idx, dir, entry_name) < 0) {
 				free(entry_name);
-				return ret;
+				return -1;
 			}
 
 		} else if (! strcmp(name, "directory")) {
@@ -1110,10 +1108,9 @@ static int _xml_parse_dir_contents(xmlTextReaderPtr reader, struct dentry *dir, 
 				ltfsmsg(LTFS_ERR, 10001E, "_xml_parse_dir_contents: dir");
 				return -LTFS_NO_MEMORY;
 			}
-			ret = _xml_parse_dirtree(reader, dir, idx, dir->vol, entry_name);
-			if (ret < 0) {
+			if (_xml_parse_dirtree(reader, dir, idx, dir->vol, entry_name) < 0) {
 				free(entry_name);
-				return ret;
+				return -1;
 			}
 
 		} else {
@@ -1197,10 +1194,9 @@ static int _xml_parse_dirtree(xmlTextReaderPtr reader, struct dentry *parent,
 			check_required_tag(0);
 
 			if (parent) {
-				ret = _xml_parse_nametype(reader, &dir->name, false);
-				if (ret < 0) {
+				if (_xml_parse_nametype(reader, &dir->name, false) < 0) {
 					free(dir);
-					return ret;
+					return -1;
 				}
 				dirname->name = dir->name.name;
 				dirname->d = dir;
@@ -1215,9 +1211,8 @@ static int _xml_parse_dirtree(xmlTextReaderPtr reader, struct dentry *parent,
 					idx->volume_name.percent_encode = false;
 					idx->volume_name.name = NULL;
 				} else {
-					ret = _xml_parse_nametype(reader, &idx->volume_name, false);
-					if (ret < 0)
-						return ret;
+					if (_xml_parse_nametype(reader, &idx->volume_name, false) < 0)
+						return -1;
 
 					check_tag_end("name");
 				}
@@ -1277,11 +1272,8 @@ static int _xml_parse_dirtree(xmlTextReaderPtr reader, struct dentry *parent,
 		} else if (! strcmp(name, "contents")) {
 			check_required_tag(6);
 			check_empty();
-			if (empty == 0) {
-				ret = _xml_parse_dir_contents(reader, dir, idx);
-				if (ret < 0)
-					return ret;
-			}
+			if (empty == 0 && _xml_parse_dir_contents(reader, dir, idx) < 0)
+				return -1;
 
 		} else if (!strcmp(name, "extendedattributes")) {
 			check_optional_tag(0);
@@ -1462,9 +1454,8 @@ static int _xml_parse_schema(xmlTextReaderPtr reader, struct ltfs_index *idx, st
 		} else if (! strcmp(name, "directory")) {
 			check_required_tag(6);
 			assert_not_empty();
-			ret = _xml_parse_dirtree(reader, NULL, idx, vol, NULL);
-			if (ret < 0)
-				return ret;
+			if (_xml_parse_dirtree(reader, NULL, idx, vol, NULL) < 0)
+				return -1;
 
 		} else if (! strcmp(name, "previousgenerationlocation")) {
 			check_optional_tag(0);
@@ -1821,10 +1812,8 @@ int xml_schema_from_tape(uint64_t eod_pos, struct ltfs_volume *vol)
 	ret = _xml_parse_schema(reader, vol->index, vol);
 	if (ret < 0) {
 		ltfsmsg(LTFS_ERR, 17016E);
-		if (ret == -1) {
-			/* TODO: Need to return more descriptive error codes */
+		if ((ret != -LTFS_UNSUPPORTED_INDEX_VERSION)&&( ret != -LTFS_SYMLINK_CONFLICT))
 			ret = -LTFS_INDEX_INVALID;
-		}
 	} else if (ret == 0) {
 		if( ! ctx->saw_file_mark)
 			ret = 1;
