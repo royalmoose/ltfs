@@ -192,6 +192,9 @@ DRIVE_DENSITY_SUPPORT_MAP lto_drive_density_strict[] = {
 };
 
 const unsigned char supported_cart[] = {
+#ifdef QUANTUM_BUILD
+    TC_MP_QTM_CART,
+#endif
 	TC_MP_LTO8D_CART,
 	TC_MP_LTO7D_CART,
 	TC_MP_LTO6D_CART,
@@ -250,6 +253,14 @@ struct supported_device *ibm_supported_drives[] = {
 		TAPEDRIVE( IBM_VENDOR_ID, "03592E07",     DRIVE_TS1140,  "[03592E07]" ),     /* IBM TS1140 */
 		TAPEDRIVE( IBM_VENDOR_ID, "03592E08",     DRIVE_TS1150,  "[03592E08]" ),     /* IBM TS1150 */
 		TAPEDRIVE( IBM_VENDOR_ID, "0359255F",     DRIVE_TS1155,  "[0359255F]" ),     /* IBM TS1155 */
+#ifdef QUANTUM_BUILD
+        TAPEDRIVE( QUANTUM_VENDOR_ID, "ULTRIUM-HH5",  DRIVE_LTO5_HH, "[ULTRIUM-HH5]" ),  /* QUANTUM Ultrium Gen 5 Half-High */
+        TAPEDRIVE( QUANTUM_VENDOR_ID, "ULTRIUM-HH6",  DRIVE_LTO6_HH, "[ULTRIUM-HH6]" ),  /* QUANTUM Ultrium Gen 6 Half-High */
+        TAPEDRIVE( QUANTUM_VENDOR_ID, "ULTRIUM-HH7",  DRIVE_LTO7_HH, "[ULTRIUM-HH7]" ),  /* QUANTUM Ultrium Gen 7 Half-High */
+        TAPEDRIVE( QUANTUM_VENDOR_ID, "ULTRIUM-HH8",  DRIVE_LTO8_HH, "[ULTRIUM-HH8]" ),  /* QUANTUM Ultrium Gen 8 Half-High */
+        TAPEDRIVE( QUANTUM_VENDOR_ID, "ULTRIUM 5",    DRIVE_QTM5,    "[ULTRIUM 5]" ),    /* QUANTUM Ultrium Gen 5 */
+        TAPEDRIVE( QUANTUM_VENDOR_ID, "ULTRIUM 6",    DRIVE_QTM6,    "[ULTRIUM 6]" ),    /* QUANTUM Ultrium Gen 6 */
+#endif
 		/* End of supported_devices */
 		NULL
 };
@@ -1333,6 +1344,10 @@ bool ibmtape_is_supported_firmware(int drive_type, const unsigned char * const r
 	case DRIVE_LTO7:
 	case DRIVE_LTO7_HH:
 	case DRIVE_TS1150:
+#ifdef QUANTUM_BUILD
+    case DRIVE_QTM5:
+    case DRIVE_QTM6:
+#endif
 	default:
 		break;
 	}

@@ -113,6 +113,9 @@ static inline int _sense2errorcode(uint32_t sense, struct error_table *table, ch
 #define TAPE_FAMILY_ENTERPRISE (0x1000)
 #define TAPE_FAMILY_LTO        (0x2000)
 #define TAPE_FAMILY_ARCHIVE    (0x4000)
+#ifdef QUANTUM_BUILD
+#define TAPE_FAMILY_QTM        (0x8000)
+#endif
 
 #define TAPE_FORMFACTOR_MASK   (0x0F00)
 #define TAPE_FORMFACTOR_FULL   (0x0100)
@@ -126,6 +129,9 @@ static inline int _sense2errorcode(uint32_t sense, struct error_table *table, ch
 #define IS_HALF_HEIGHT(type)   (type & TAPE_FORMFACTOR_HALF)
 #define DRIVE_FAMILY_GEN(type) (type & (TAPE_GEN_MASK | TAPE_FAMILY_MASK) )
 #define DRIVE_GEN(type)        (type & TAPE_GEN_MASK)
+#ifdef QUANTUM_BUILD
+#define IS_QTM(type)           (type & TAPE_FAMILY_QTM)
+#endif
 
 enum {
 	DRIVE_UNSUPPORTED = 0x0000, /* Unsupported drive */
@@ -140,6 +146,10 @@ enum {
 	DRIVE_TS1140      = 0x1104, /* TS1140 */
 	DRIVE_TS1150      = 0x1105, /* TS1150 */
 	DRIVE_TS1155      = 0x5105, /* TS1155 */
+#ifdef QUANTUM_BUILD
+    DRIVE_QTM5        = 0xA105, /* QUANTUM Gen 5 */
+    DRIVE_QTM6        = 0xA106, /* QUANTUM Gen 6 */
+#endif
 };
 
 enum {
@@ -242,6 +252,9 @@ extern int num_supported_cart;
 extern int num_supported_density;
 
 #define IBM_VENDOR_ID "IBM"
+#ifdef QUANTUM_BUILD
+#define QUANTUM_VENDOR_ID "QUANTUM"
+#endif
 #define LOGSENSEPAGE 1024     /* max data xfer for log sense page ioctl */
 
 int  ibm_tape_init_timeout(struct timeout_tape **table, int type);

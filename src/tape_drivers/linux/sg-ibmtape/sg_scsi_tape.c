@@ -149,18 +149,50 @@ int sg_issue_cdb_command(struct sg_tape *device, sg_io_hdr_t *req, char **msg)
 	CHECK_ARG_NULL(req, -LTFS_NULL_ARG);
 	CHECK_ARG_NULL(msg, -LTFS_NULL_ARG);
 
+#ifdef QUANTUM_BUILD
+    qtmlogmem( "CDB: ", ( unsigned char * )req->cmdp, ( int )req->cmd_len);
+#endif
+
 	ret = ioctl(device->fd, SG_IO, req);
 	if (ret < 0) {
 		ltfsmsg(LTFS_INFO, 30200I, *req->cmdp, errno);
 		return -EDEV_INTERNAL_ERROR;
 	}
 
+#ifdef QUANTUM_BUILD
+	if ( ( req->dxfer_len <= 256 ) && ( req->dxfer_len > 0 ) )
+	{
+	    qtmlogmem( "DATA: ", ( unsigned char *)req->dxferp, req->dxfer_len );
+	}
+#endif
+
 	switch (req->masked_status) {
 		case SCSI_GOOD:
 			ret = DEVICE_GOOD;
+#ifdef QUANTUM_BUILD
+			// sometimes, masked_status is good, but host_status or driver_status is not good
+            if (req->host_status) {
+                ret = -EDEV_HOST_ERROR;
+                if (msg) {
+                    *msg = "CDB command returned host error";
+                }
+                ltfsmsg(LTFS_INFO, 30203I, req->masked_status, req->host_status, req->driver_status);
+            } else if (req->driver_status) {
+                ret = -EDEV_DRIVER_ERROR;
+                if (msg) {
+                    *msg = "CDB command returned driver error";
+                }
+                ltfsmsg(LTFS_INFO, 30203I, req->masked_status, req->host_status, req->driver_status);
+            } else {
+                ltfsmsg(LTFS_DEBUG, 30202D, "good status");
+            }
+#endif
 			break;
 		case SCSI_CHECK_CONDITION:
 			if (req->sb_len_wr) {
+#ifdef QUANTUM_BUILD
+                qtmlogmem( "SENSE: ", ( unsigned char * )req->sbp, ( int )req->sb_len_wr);
+#endif
 				ret = sg_sense2errno(req, &sense, msg);
 				ltfsmsg(LTFS_DEBUG, 30201D, sense, *msg);
 			} else {

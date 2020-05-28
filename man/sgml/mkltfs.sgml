@@ -60,7 +60,7 @@
           <listitem>
             <para>
               Tape device name (required). On Linux, <replaceable>name</replaceable> is like
-              '/dev/IBMtape0', on OSX, <replaceable>name</replaceable> is like '0'
+              '/dev/sg0', on OSX, <replaceable>name</replaceable> is like '0'
             </para>
           </listitem>
         </varlistentry>
@@ -157,9 +157,9 @@
       <example>
         <title>USAGE EXAMPLE</title>
         <programlisting>
-          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/IBMtape0 --rules="size=100K"
-          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/IBMtape0 --rules="size=1M/name=*.jpg"
-          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/IBMtape0 --rules="size=1M/name=*.jpg:*.png"
+          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/sg0 --rules="size=100K"
+          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/sg0 --rules="size=1M/name=*.jpg"
+          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/sg0 --rules="size=1M/name=*.jpg:*.png"
         </programlisting>
       </example>
     </refsect1>

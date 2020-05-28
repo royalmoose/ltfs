@@ -8,20 +8,20 @@
 # Tape device plugins
 # Syntax: driver PLUGIN-NAME PLUGIN-PATH
 # The PLUGIN-PATH may contain spaces.
-driver ibmtape /opt/IBM/ltfs/lib64/ltfs/libdriver-ibmtape.so
-driver file /opt/IBM/ltfs/lib64/ltfs/libdriver-file.so
+driver ibmtape /opt/QUANTUM/ltfs/lib64/ltfs/libdriver-ibmtape.so
+driver file /opt/QUANTUM/ltfs/lib64/ltfs/libdriver-file.so
 
 # I/O scheduler plugins
 # Syntax: iosched PLUGIN-NAME PLUGIN-PATH
 # The PLUGIN-PATH may contain spaces.
-iosched unified /opt/IBM/ltfs/lib64/ltfs/libiosched-unified.so
-iosched fcfs /opt/IBM/ltfs/lib64/ltfs/libiosched-fcfs.so
+iosched unified /opt/QUANTUM/ltfs/lib64/ltfs/libiosched-unified.so
+iosched fcfs /opt/QUANTUM/ltfs/lib64/ltfs/libiosched-fcfs.so
 
 # Key Manager Interface plugins
 # Syntax: kmi PLUGIN-NAME PLUGIN-PATH
 # The PLUGIN-PATH may contain spaces.
-kmi flatfile /opt/IBM/ltfs/lib64/ltfs/libkmi-flatfile.so
-kmi simple /opt/IBM/ltfs/lib64/ltfs/libkmi-simple.so
+kmi flatfile /opt/QUANTUM/ltfs/lib64/ltfs/libkmi-flatfile.so
+kmi simple /opt/QUANTUM/ltfs/lib64/ltfs/libkmi-simple.so
 
 # Default plugins
 # Syntax: default PLUGIN-TYPE PLUGIN-NAME

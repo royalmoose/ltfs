@@ -18,7 +18,7 @@ options is included below. For a complete description, see the
 .TP
 \fB-d, --device=\fIname\fB\fR
 Tape device name (required). On Linux, \fIname\fR is like
-\&'/dev/IBMtape0', on OSX, \fIname\fR is like '0'
+\&'/dev/sg0', on OSX, \fIname\fR is like '0'
 .TP
 \fB-f, --force\fR
 Force to format medium
@@ -72,9 +72,9 @@ Full help, including advanced options
 .SS "USAGE EXAMPLE"
 .sp
 .nf
-          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/IBMtape0 --rules="size=100K"
-          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/IBMtape0 --rules="size=1M/name=*.jpg"
-          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/IBMtape0 --rules="size=1M/name=*.jpg:*.png"
+          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/sg0 --rules="size=100K"
+          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/sg0 --rules="size=1M/name=*.jpg"
+          /home/piste/ltfs05-sde/bin/mkltfs --device=/dev/sg0 --rules="size=1M/name=*.jpg:*.png"
         
 .sp
 .fi

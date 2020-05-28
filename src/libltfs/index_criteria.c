@@ -47,7 +47,7 @@
 *************************************************************************************
 */
 
-#ifdef __APPLE_MAKEFILE__
+#ifdef __APPLE__
 #include <ICU/unicode/ubrk.h>
 #include <ICU/unicode/ustring.h>
 #else

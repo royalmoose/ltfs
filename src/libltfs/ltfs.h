@@ -82,7 +82,7 @@ extern "C" {
 #include <sys/shm.h>
 #endif
 
-#ifdef __APPLE_MAKEFILE__
+#ifdef __APPLE__
 #include <ICU/unicode/utypes.h>
 #else
 #include <unicode/utypes.h>
@@ -152,7 +152,7 @@ struct device_data;
 
 #define LTFS_NO_BARCODE               "NO_BARCODE"
 
-#ifdef __APPLE_MAKEFILE__
+#ifdef __APPLE__
 #define PACKAGE_NAME                  "LTFS"
 #define PACKAGE_VERSION               "2.4.0.2"
 #else
@@ -161,7 +161,11 @@ struct device_data;
 
 #define LTFS_LOSTANDFOUND_DIR         "_ltfs_lostandfound"
 
+#ifdef QUANTUM_BUILD
+#define LTFS_VENDOR_NAME              "QUANTUM"
+#else
 #define LTFS_VENDOR_NAME              "IBM"
+#endif
 
 #define LTFS_LIVELINK_EA_NAME         "ltfs.vendor.IBM.prefixLength"
 

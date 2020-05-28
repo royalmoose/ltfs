@@ -84,7 +84,7 @@
           <listitem>
             <para>
               Tape device name. On Linux, <replaceable>name</replaceable> is like
-              '/dev/IBMtape0', on OSX, <replaceable>name</replaceable> is like '0'(default: )
+              '/dev/sg0', on OSX, <replaceable>name</replaceable> is like '0'(default: )
             </para>
           </listitem>
         </varlistentry>

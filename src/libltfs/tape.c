@@ -63,7 +63,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#ifdef __APPLE_MAKEFILE__
+#ifdef __APPLE__
 #include <ICU/unicode/utf8.h>
 #include <ICU/unicode/ustring.h>
 #else
@@ -1950,14 +1950,23 @@ int tape_recover_eod_status(struct device_data *dev, void * const kmi_handle)
 		return ret;
 	}
 
+#ifdef QUANTUM_BUILD
+    /* The last-reported position may be the unreadable block, so back off by 1 */
+    eod_pos.block--;
+#endif
+
 	/* Unload -> Load -> locate(erase point) -> erase to avoid drive fence behavior */
 	INTERRUPTED_RETURN();
 	ltfsmsg(LTFS_INFO, 17131I, (unsigned long long)eod_pos.partition, (unsigned long long)eod_pos.block);
+
+#ifndef QUANTUM_BUILD
+    /* the unload is unnecessary with QUANTUM drives and also causes problems */
 	ret = tape_unload_tape(false, dev);
 	if (ret < 0) {
 		ltfsmsg(LTFS_ERR, 17133E);
 		return ret;
 	}
+#endif
 
 	INTERRUPTED_RETURN();
 	ret = tape_load_tape(dev, kmi_handle, true);

@@ -36,7 +36,7 @@
 dnl
 dnl LTFS configure.ac.
 dnl
-AC_INIT([LTFS], [2.4.0.2 (10071)], IBM corporation.)
+AC_INIT([LTFS], [2.4.0.2], Quantum Corporation)
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIRS([m4])
@@ -132,6 +132,11 @@ AC_ARG_ENABLE([snmp],
 	[snmp=yes]
 )
 AC_MSG_RESULT([$snmp])
+
+dnl
+dnl Handle conditional in src/libltfs/Makefile.am
+dnl
+AM_CONDITIONAL([QTM_SNMP], [test x"$snmp" = x"yes"])
 
 dnl
 dnl Handle --enable-lin-tape (default:no, Linux Only)
@@ -314,7 +319,7 @@ dnl
 dnl Update flags
 dnl Sets CFLAGS to force optimization and debugging options, which isn't quite kosher
 dnl
-AM_CPPFLAGS="-D_GNU_SOURCE -I\$(top_srcdir)/src -DLTFS_CONFIG_FILE='\"${sysconfdir}/ltfs.conf\"' -DLTFS_BASE_DIR='\"${prefix}\"'"
+AM_CPPFLAGS="-D_GNU_SOURCE -DQUANTUM_BUILD -I\$(top_srcdir)/src -DLTFS_CONFIG_FILE='\"${sysconfdir}/ltfs.conf\"' -DLTFS_BASE_DIR='\"${prefix}\"'"
 AM_CFLAGS="-Wall -Wsign-compare -fsigned-char ${FUSE_MODULE_CFLAGS} ${UUID_MODULE_CFLAGS} ${LIBXML2_MODULE_CFLAGS} ${ICU_MODULE_CFLAGS} ${SNMP_ENABLE} ${SNMP_MODULE_CFLAGS}"
 
 if test "x$use_fast" = "xyes"

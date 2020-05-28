@@ -101,6 +101,9 @@ struct supported_device {
 
 /* Cartridge type in mode page header */
 enum {
+#ifdef QUANTUM_BUILD
+    TC_MP_QTM_CART    = 0,      /* QUANTUM Data cartridge */
+#endif
 	TC_MP_LTO1D_CART  = 0x18,   /* LTO1 Data cartridge */
 	TC_MP_LTO2D_CART  = 0x28,   /* LTO2 Data cartridge */
 	TC_MP_LTO3D_CART  = 0x38,   /* LTO3 Data cartridge */

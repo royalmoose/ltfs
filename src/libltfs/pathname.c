@@ -52,7 +52,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#ifdef __APPLE_MAKEFILE__
+#ifdef __APPLE__
 #include <ICU/unicode/uchar.h>
 #include <ICU/unicode/ustring.h>
 #include <ICU/unicode/utypes.h>

@@ -96,7 +96,9 @@ struct iokit_ibmtape_global_data global_data;
 #define LOG_PAGE_PARAM_OFFSET     (4)
 
 #define IOKIT_MAX_BLOCK_SIZE (1 * MB)
+#ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
 
 /* Forward references (For keep function order to struct tape_ops) */
 int iokit_ibmtape_readpos(void *device, struct tc_position *pos);
@@ -108,6 +110,56 @@ int iokit_ibmtape_modeselect(void *device, unsigned char *buf, const size_t size
 
 
 /* Local functions */
+#ifdef QUANTUM_BUILD
+#define qtmlog(fmt, ...) \
+    do \
+    { \
+        char *msg; \
+        asprintf( &msg, fmt, ##__VA_ARGS__ ); \
+        ltfsmsg(LTFS_DEBUG, 30992D, msg, ""); \
+        free( msg ); \
+    } \
+    while(0)
+
+static char *iokit_printbytes ( unsigned char *data, int num_bytes)
+{
+    int i = 0, len = 0;
+    char *print_string = NULL;
+
+    print_string = (char*) calloc(num_bytes * 4, sizeof(char));
+    if (print_string == (char *) NULL) {
+        ltfsmsg(LTFS_ERR, 10001E, "iokit_printbytes: temp string data");
+        return NULL;
+
+    } else {
+        for (i = 0, len = 0; i < num_bytes; i++, len += 3) {
+            sprintf(print_string + len, "%2.2X ", *(data + i));
+        }
+        return print_string;
+    }
+}
+
+static void qtmlogmem ( char *prefix, unsigned char *data, int num_bytes)
+{
+    int off = 0;
+    int rem = num_bytes;
+    int act = 0;
+    char *bytes = NULL;
+
+    while( rem )
+    {
+        act = ( rem >= 16 ) ? 16 : rem;
+        bytes = iokit_printbytes( &data[off], act );
+        ltfsmsg(LTFS_DEBUG, 30992D, prefix, bytes);
+        free ( bytes );
+        off += act;
+        rem -= act;
+    }
+
+    return;
+}
+#endif
+
 static inline int _parse_logPage(const unsigned char *logdata,
 								 const uint16_t param, uint32_t *param_size,
 								 unsigned char *buf, const size_t bufsize)
@@ -185,6 +237,11 @@ static int _set_lbp(void *device, bool enable)
 	unsigned char buf_ext[TC_MP_INIT_EXT_SIZE];
 	unsigned char lbp_method = LBP_DISABLE;
 
+#ifdef QUANTUM_BUILD
+    if ( IS_QTM( priv->drive_type ) )
+        return 0;
+#endif
+
 	/* Check logical block protection capability */
 	ret = iokit_ibmtape_modesense(device, TC_MP_INIT_EXT, TC_MP_PC_CURRENT, 0x00, buf_ext, sizeof(buf_ext));
 	if (ret < 0)
@@ -253,6 +310,62 @@ static bool is_dump_required(struct iokit_ibmtape_data *priv, int ret, bool *cap
 		ans = true;
 	}
 
+#ifdef QUANTUM_BUILD
+    switch( err )
+    {
+    // Sense Key 2 Not Ready
+    case EDEV_NOT_REPORTABLE :
+    case EDEV_BECOMING_READY :
+    case EDEV_NO_MEDIUM :
+    case EDEV_NOT_SELF_CONFIGURED_YET :
+    case EDEV_CLEANING_IN_PROGRESS :
+
+    // Sense Key 3 Medium Error
+    case EDEV_CLEANING_FALIURE :
+
+    // Sense Key 5 Illegal Request
+    case EDEV_INVALID_FIELD_CDB :
+    case EDEV_DEST_FULL :
+    case EDEV_SRC_EMPTY :
+    case EDEV_MAGAZINE_INACCESSIBLE :
+    case EDEV_INVALID_ADDRESS :
+
+    // Sense Key 6 Unit Attention
+    case EDEV_UNIT_ATTENTION :
+    case EDEV_MEDIUM_MAY_BE_CHANGED :
+    case EDEV_IE_ACCESSED :
+    case EDEV_POR_OR_BUS_RESET :
+    case EDEV_CONFIGURE_CHANGED :
+    case EDEV_COMMAND_CLEARED :
+    case EDEV_MEDIUM_REMOVAL_REQ :
+    case EDEV_MEDIA_REMOVAL_PREV :
+    case EDEV_DOOR_CLOSED :
+    case EDEV_TIME_STAMP_CHANGED :
+    case EDEV_RESERVATION_PREEMPTED :
+    case EDEV_RESERVATION_RELEASED :
+    case EDEV_REGISTRATION_PREEMPTED :
+
+    // Sense Key 7 Data Protect
+    case EDEV_DATA_PROTECT :
+    case EDEV_WRITE_PROTECTED :
+    case EDEV_WRITE_PROTECTED_WORM :
+    case EDEV_WRITE_PROTECTED_OPERATOR :
+
+    // Sense Key 8 Blank Check
+    case EDEV_BLANK_CHECK :
+    case EDEV_EOD_DETECTED :
+    case EDEV_EOD_NOT_FOUND :
+
+    // Sense Key D Volume Overflow
+    case EDEV_OVERFLOW :
+        ans = false;
+        break;
+
+    default :
+        break;
+    }
+#endif
+
 	*capture_unforced = (IS_MEDIUM_ERROR(err) || IS_HARDWARE_ERROR(err));
 
 	return ans;
@@ -276,6 +389,15 @@ static int _get_dump(struct iokit_ibmtape_data *priv, char *fname)
 	unsigned char           *dump_buf;
 	int                     buf_id;
 
+#ifdef QUANTUM_BUILD
+    if ( IS_QTM(priv->drive_type) )
+    {
+        fname[strlen(fname)-3] = 's';
+        fname[strlen(fname)-2] = 'v';
+        fname[strlen(fname)-1] = 'm';
+    }
+#endif
+
 	ltfsmsg(LTFS_INFO, 30855I, fname);
 
 	/* Set transfer size */
@@ -285,6 +407,22 @@ static int _get_dump(struct iokit_ibmtape_data *priv, char *fname)
 		ltfsmsg(LTFS_ERR, 10001E, __FUNCTION__);
 		return -EDEV_NO_MEMORY;
 	}
+
+#ifdef QUANTUM_BUILD
+    if ( IS_QTM(priv->drive_type) )
+    {
+        /* revise transfer size */
+        transfer_size = 0x280000;
+        dump_buf = realloc(dump_buf, transfer_size);
+        if(!dump_buf){
+            ltfsmsg(LTFS_ERR, 10001E, __FUNCTION__);
+            return -EDEV_NO_MEMORY;
+        }
+
+        /* sleep a bit after forcing dump */
+        sleep(30);
+    }
+#endif
 
 	/* Set buffer ID */
 	if (IS_ENTERPRISE(priv->drive_type)) {
@@ -468,10 +606,89 @@ static int _cdb_read_buffer(void *device, int id, unsigned char *buf, size_t off
 	req.timeout         = IOKitConversion(timeout);
 	req.desc            = cmd_desc;
 
+#ifdef QUANTUM_BUILD
+    unsigned char qtm_read_snapshot_cdb[] = { MAINTENANCE_IN, 0x1f, 0x08, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 };
+    unsigned char qtm_report_snapshots_available_cdb[] = { MAINTENANCE_IN, 0x1f, 0x07, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    unsigned char gigo[1024];
+    static unsigned int last_log_number;
+    static unsigned int last_log_length;
+
+    if ( IS_QTM( priv->drive_type ) )
+    {
+        if ( type == 0x02 )
+        {
+            memcpy( gigo, qtm_read_snapshot_cdb, sizeof(qtm_read_snapshot_cdb) );
+            req.cmdp    = gigo;
+            req.cmd_len = sizeof(qtm_read_snapshot_cdb);
+            gigo[4]     = (unsigned char)( last_log_number >>  8  ) & 0xff;
+            gigo[5]     = (unsigned char)( last_log_number        ) & 0xff;
+            gigo[6]     = (unsigned char)( last_log_length >> 16  ) & 0xff;
+            gigo[7]     = (unsigned char)( last_log_length >> 8   ) & 0xff;
+            gigo[8]     = (unsigned char)( last_log_length        ) & 0xff;
+        }
+        else if ( type == 0x03 )
+        {
+            memcpy( gigo, qtm_report_snapshots_available_cdb, sizeof(qtm_report_snapshots_available_cdb) );
+            req.cmdp      = gigo;
+            req.cmd_len   = sizeof(qtm_report_snapshots_available_cdb);
+            req.dxfer_len = sizeof(gigo);
+            req.dxferp    = gigo;
+
+            last_log_number = 0;
+        }
+    }
+#endif
+
 	ret = iokit_issue_cdb_command(&priv->dev, &req, &msg);
 	if (ret < 0){
 		_process_errors(device, ret, msg, cmd_desc, true);
 	}
+
+#ifdef QUANTUM_BUILD
+    unsigned char *b = &gigo[0];
+    unsigned int i = 0;
+
+    if ( IS_QTM( priv->drive_type ) )
+    {
+        if ( type == 0x03 )
+        {
+            unsigned int logs_available = ( (unsigned int)b[0] << 8 ) +
+                                          ( (unsigned int)b[1] );
+            qtmlog( "Snapshot Logs Available: %u", logs_available );
+
+            b += 6;
+            for ( i = 0; i < logs_available; i++ )
+            {
+                unsigned int log_number =      ( (unsigned int)b[0] << 8 ) +
+                                               ( (unsigned int)b[1] );
+                unsigned int log_trigger =     ( (unsigned int)b[2] );
+                unsigned int log_length =      ( (unsigned int)b[4] << 24 ) +
+                                               ( (unsigned int)b[5] << 16 ) +
+                                               ( (unsigned int)b[6] << 8 ) +
+                                               ( (unsigned int)b[7] );
+                unsigned long timestamp =      ( (unsigned long)b[8]  << 40 ) +
+                                               ( (unsigned long)b[9]  << 32 ) +
+                                               ( (unsigned long)b[10] << 24 ) +
+                                               ( (unsigned long)b[11] << 16 ) +
+                                               ( (unsigned long)b[12] << 8 ) +
+                                               ( (unsigned long)b[13] );
+                qtmlog( "Log %u: lognum=0x%x trigger=%u loglen=0x%x timestamp=%lu", i, log_number, log_trigger, log_length, timestamp );
+
+                if ( log_number >= last_log_number )
+                {
+                    buf[0] = b[4];
+                    buf[1] = b[5];
+                    buf[2] = b[6];
+                    buf[3] = b[7];
+                    last_log_number = log_number;
+                    last_log_length = log_length;
+                }
+
+                b +=14;
+            }
+        }
+    }
+#endif
 
 	return ret;
 }
@@ -521,6 +738,20 @@ static int _cdb_force_dump(struct iokit_ibmtape_data *priv)
 	memset(&req.sense_buffer, 0, req.mx_sb_len);
 	req.timeout         = IOKitConversion(timeout);
 	req.desc            = cmd_desc;
+
+#ifdef QUANTUM_BUILD
+    unsigned char qtm_force_snapshot_cdb[] = { MAINTENANCE_OUT, 0x1f, 0x0c, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	char qcdb[12];
+    if ( IS_QTM( priv->drive_type ) )
+    {
+        memcpy( qcdb, qtm_force_snapshot_cdb, sizeof(qtm_force_snapshot_cdb) );
+        req.cmdp            = qcdb;
+        req.cmd_len         = sizeof(qtm_force_snapshot_cdb);
+        req.dxfer_direction = SCSI_NO_DATA_TRANSFER;
+        req.dxfer_len       = 0;
+        req.dxferp          = 0;
+    }
+#endif
 
 	ret = iokit_issue_cdb_command(&priv->dev, &req, &msg);
 	if (ret < 0){
@@ -815,8 +1046,13 @@ int iokit_ibmtape_open(const char *devname, void **handle)
 free:
 	if (priv->devname)
 		free(priv->devname);
+#ifdef QUANTUM_BUILD
+    ltfs_profiler_add_entry(priv->profiler, NULL, TAPEBEND_REQ_EXIT(REQ_TC_OPEN));
+    free(priv);
+#else
 	free(priv);
 	ltfs_profiler_add_entry(priv->profiler, NULL, TAPEBEND_REQ_EXIT(REQ_TC_OPEN));
+#endif
 	return ret;
 }
 
@@ -1620,6 +1856,10 @@ int iokit_ibmtape_space(void *device, size_t count, TC_SPACE_TYPE type, struct t
 			ltfs_u64tobe(cdb + 4, count);
 			break;
 		case TC_SPACE_B:
+#ifdef QUANTUM_BUILD
+            ltfsmsg(LTFS_DEBUG, 30996D, "space back records", (unsigned long long)count,
+                    priv->drive_serial);
+#endif
 			cdb[1] = 0x00;
 			ltfs_u64tobe(cdb + 4, -count);
 			break;
@@ -1760,10 +2000,17 @@ int iokit_ibmtape_erase(void *device, struct tc_position *pos, bool long_erase)
 			sense_data += ((uint32_t) sense_buf[12] & 0xFF) << 8;
 			sense_data += ((uint32_t) sense_buf[13] & 0xFF);
 
+#ifdef QUANTUM_BUILD
+            if (sense_data != 0x000016 && sense_data != 0x000018 && sense_data != 0x020018) {
+                /* Erase operation is NOT in progress */
+                break;
+            }
+#else
 			if (sense_data != 0x000016 && sense_data != 0x000018) {
 				/* Erase operation is NOT in progress */
 				break;
 			}
+#endif
 
 			if (IS_ENTERPRISE(priv->drive_type)) {
 				get_current_timespec(&ts_now);
@@ -2087,8 +2334,13 @@ int iokit_ibmtape_remaining_capacity(void *device, struct tc_remaining_cap *cap)
 
 	memset(&buffer, 0, LOGSENSEPAGE);
 
+#ifdef QUANTUM_BUILD
+    if ( (IS_LTO(priv->drive_type) && (DRIVE_GEN(priv->drive_type) == 0x05)) || IS_QTM(priv->drive_type) ) {
+#else
 	if (IS_LTO(priv->drive_type) && (DRIVE_GEN(priv->drive_type) == 0x05)) {
+#endif
 		/* Use LogPage 0x31 */
+
 		ret = iokit_ibmtape_logsense(device, (uint8_t)LOG_TAPECAPACITY, (void *)buffer, LOGSENSEPAGE);
 		if(ret < 0)
 		{
@@ -2196,6 +2448,13 @@ static int _cdb_logsense(void *device, const unsigned char page, const unsigned 
 	int ret = -EDEV_UNKNOWN;
 	struct iokit_ibmtape_data *priv = (struct iokit_ibmtape_data*)device;
 
+#ifdef QUANTUM_BUILD
+    if ( IS_QTM( priv->drive_type ) && ( page == 0x37 ) )
+    {
+        return -EDEV_UNSUPPORETD_COMMAND;
+    }
+#endif
+
 	struct iokit_scsi_request req;
 	unsigned char cdb[CDB10_LEN];
 	int timeout;
@@ -2261,6 +2520,11 @@ int iokit_ibmtape_modesense(void *device, const unsigned char page, const TC_MP_
 	char cmd_desc[COMMAND_DESCRIPTION_LENGTH] = "MODESENSE";
 	char *msg;
 
+#ifdef QUANTUM_BUILD
+    if ( IS_QTM(priv->drive_type) && (page == TC_MP_READ_WRITE_CTRL) )
+        return -EDEV_UNSUPPORETD_COMMAND;
+#endif
+
 	ltfs_profiler_add_entry(priv->profiler, NULL, TAPEBEND_REQ_ENTER(REQ_TC_MODESENSE));
 	ltfsmsg(LTFS_DEBUG3, 30993D, "modesense", page, priv->drive_serial);
 
@@ -2320,6 +2584,22 @@ int iokit_ibmtape_modeselect(void *device, unsigned char *buf, const size_t size
 	/* Build CDB */
 	cdb[0] = MODE_SELECT10;
 	ltfs_u16tobe(cdb + 7, size);
+
+#ifdef QUANTUM_BUILD
+    if ( IS_QTM( priv->drive_type )) {
+        cdb[1] |= 0x10;
+        if ( cdb[0] == 0x55 ) {
+            buf[0] = 0;
+            buf[1] = 0;
+            if ( ( ( buf[16] & 0x03f ) == 0x10 ) && ( buf[17] == 0x01 ) ) {
+                buf[21] &= 0x0f;
+            }
+        }
+        else {
+            buf[0] = 0;
+        }
+    }
+#endif
 
 	timeout = ibm_tape_get_timeout(priv->timeouts, cdb[0]);
 	if (timeout < 0)
@@ -3066,6 +3346,7 @@ int iokit_ibmtape_get_xattr(void *device, const char *name, char **buf)
 		if (priv->fetch_sec_acq_loss_w == 0 ||
 			((priv->fetch_sec_acq_loss_w + 60 < now.tv_sec) && priv->dirty_acq_loss_w))
 		{
+#ifndef QUANTUM_BUILD
 			ret = _cdb_logsense(device, LOG_PERFORMANCE, LOG_PERFORMANCE_CAPACITY_SUB, logdata, LOGSENSEPAGE);
 
 			if (ret < 0) {
@@ -3090,6 +3371,7 @@ int iokit_ibmtape_get_xattr(void *device, const char *name, char **buf)
 					}
 				}
 			}
+#endif
 		}
 	}
 
@@ -3346,11 +3628,19 @@ int iokit_ibmtape_get_device_list(struct tc_drive_info *buf, int count)
 			drive_type = iokit_get_drive_identifier(iokit_device, &identifier);
 			if (drive_type != -1) {
 				if (found < count && buf) {
-					snprintf(buf[i].name, TAPE_DEVNAME_LEN_MAX, "%d", i);
+#ifdef QUANTUM_BUILD
+                    snprintf(buf[found].name, TAPE_DEVNAME_LEN_MAX, "%d", i);
+                    snprintf(buf[found].vendor, TAPE_VENDOR_NAME_LEN_MAX, "%s", identifier.vendor_id);
+                    snprintf(buf[found].model, TAPE_MODEL_NAME_LEN_MAX, "%s", identifier.product_id);
+                    snprintf(buf[found].serial_number, TAPE_SERIAL_LEN_MAX, "%s", identifier.unit_serial);
+                    snprintf(buf[found].product_name, PRODUCT_NAME_LENGTH, "%s", _generate_product_name(identifier.product_id));
+#else
+				    snprintf(buf[i].name, TAPE_DEVNAME_LEN_MAX, "%d", i);
 					snprintf(buf[i].vendor, TAPE_VENDOR_NAME_LEN_MAX, "%s", identifier.vendor_id);
 					snprintf(buf[i].model, TAPE_MODEL_NAME_LEN_MAX, "%s", identifier.product_id);
 					snprintf(buf[i].serial_number, TAPE_SERIAL_LEN_MAX, "%s", identifier.unit_serial);
 					snprintf(buf[i].product_name, PRODUCT_NAME_LENGTH, "%s", _generate_product_name(identifier.product_id));
+#endif
 				}
 				found ++;
 			}

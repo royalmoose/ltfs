@@ -499,6 +499,17 @@ int ltfs_setup_device(struct ltfs_volume *vol)
 	if (ret < 0)
 		return ret;
 
+#ifdef QUANTUM_BUILD
+    struct tc_inq inq;
+    ret = tape_inquiry(vol->device, &inq);
+    if ( ret || ( inq.devicetype == 0xA105 ) || ( inq.devicetype == 0xA106 ) )
+    {
+        vol->append_only_mode = false;
+        ltfsmsg(LTFS_INFO, 17157I, "to append-anywhere mode");
+        return 0;
+    }
+#endif
+
 	if (vol->append_only_mode) {
 		ltfsmsg(LTFS_INFO, 17157I, "to append-only mode");
 		ret = tape_enable_append_only_mode(vol->device, true);
@@ -2340,6 +2351,17 @@ int ltfs_write_index(char partition, char *reason, struct ltfs_volume *vol)
 	else /* partition == ltfs_dp_id(vol) */
 		vol->dp_index_file_end = true;
 
+#ifdef QUANTUM_BUILD
+	// Quantum drive needs device attribute 9 updated before updating cart coherency
+	if ( vol->ip_index_file_end && vol->dp_index_file_end )
+	{
+        if ( !strcmp( reason, SYNC_UNMOUNT  ) ||
+             !strcmp( reason, SYNC_RECOVERY ) ||
+             !strcmp( reason, SYNC_FORMAT   ) )
+            ret = tape_write_filemark(vol->device, 0, true, true, false);
+	}
+#endif
+
 	/* The MAM may be inaccessible, or it may not be available on this medium. Either way,
 	 * ignore failures when updating MAM parameters. */
 	ltfs_update_cart_coherency(vol);
@@ -2793,6 +2815,20 @@ int ltfs_format_tape(struct ltfs_volume *vol, int density_code)
 		}
 	}
 
+#ifdef QUANTUM_BUILD
+    /*
+     * Quantum automation requires Tape Partition 0 to be written first in
+     * order to enable library managed encryption (LME) functionality.
+     */
+
+    /* Write index partition */
+    INTERRUPTED_RETURN();
+    ltfsmsg(LTFS_INFO, 11100I, vol->label->partid_ip);
+    ret = ltfs_write_label(ltfs_part_id2num(vol->label->partid_ip, vol), vol);
+    if (ret < 0)
+        return ret;
+#endif
+
 	/* Write data partition */
 	INTERRUPTED_RETURN();
 	ltfsmsg(LTFS_INFO, 11100I, vol->label->partid_dp);
@@ -2806,12 +2842,15 @@ int ltfs_format_tape(struct ltfs_volume *vol, int density_code)
 		return ret;
 	}
 
+#ifndef QUANTUM_BUILD
 	/* Write index partition */
 	INTERRUPTED_RETURN();
 	ltfsmsg(LTFS_INFO, 11100I, vol->label->partid_ip);
 	ret = ltfs_write_label(ltfs_part_id2num(vol->label->partid_ip, vol), vol);
 	if (ret < 0)
 		return ret;
+#endif
+
 	ltfsmsg(LTFS_INFO, 11278I, vol->label->partid_ip); /* "Writing Index to ..." */
 	ret = ltfs_write_index(vol->label->partid_ip, SYNC_FORMAT, vol);
 	if (ret < 0) {

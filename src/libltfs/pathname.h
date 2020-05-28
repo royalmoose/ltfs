@@ -61,7 +61,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdbool.h>
 
-#ifdef __APPLE_MAKEFILE__
+#ifdef __APPLE__
 #include <ICU/unicode/utypes.h>
 #else
 #include <unicode/utypes.h>

@@ -73,6 +73,7 @@ libltfs_la_LIBADD = ../../messages/libltfs_dat.o ../../messages/internal_error_d
 libltfs_la_CPPFLAGS = @AM_CPPFLAGS@ -I ..
 libltfs_la_LDFLAGS = @AM_LDFLAGS@
 
+if QTM_SNMP
 install-data-local:
 	if [ ! -d "$(DESTDIR)$(prefix)/share/snmp" ]; then \
 		mkdir -p "$(DESTDIR)$(prefix)/share/snmp"; \
@@ -82,3 +83,4 @@ install-data-local:
 	elif [ ! -f "$(DESTDIR)$(prefix)/share/snmp/LTFS-MIB.txt" ]; then \
 		cp LTFS-MIB.txt "$(DESTDIR)$(prefix)/share/snmp/LTFS-MIB.txt"; \
 	fi
+endif

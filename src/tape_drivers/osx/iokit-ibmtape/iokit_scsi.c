@@ -77,11 +77,82 @@ struct error_table *standard_table = NULL;
 struct error_table *vendor_table = NULL;
 
 /* Local functions */
+#ifdef QUANTUM_BUILD
+#define qtmlog(fmt, ...) \
+    do \
+    { \
+        char *msg; \
+        asprintf( &msg, fmt, ##__VA_ARGS__ ); \
+        ltfsmsg(LTFS_DEBUG, 30992D, msg, ""); \
+        free( msg ); \
+    } \
+    while(0)
+
+static char *iokit_printbytes ( unsigned char *data, int num_bytes)
+{
+    int i = 0, len = 0;
+    char *print_string = NULL;
+
+    print_string = (char*) calloc(num_bytes * 4, sizeof(char));
+    if (print_string == (char *) NULL) {
+        ltfsmsg(LTFS_ERR, 10001E, "iokit_printbytes: temp string data");
+        return NULL;
+
+    } else {
+        for (i = 0, len = 0; i < num_bytes; i++, len += 3) {
+            sprintf(print_string + len, "%2.2X ", *(data + i));
+        }
+        return print_string;
+    }
+}
+
+static void qtmlogmem ( char *prefix, unsigned char *data, int num_bytes)
+{
+    int off = 0;
+    int rem = num_bytes;
+    int act = 0;
+    char *bytes = NULL;
+
+    while( rem )
+    {
+        act = ( rem >= 16 ) ? 16 : rem;
+        bytes = iokit_printbytes( &data[off], act );
+        ltfsmsg(LTFS_DEBUG, 30992D, prefix, bytes);
+        free ( bytes );
+        off += act;
+        rem -= act;
+    }
+
+    return;
+}
+#endif
+
 static int iokit_sense2errno(struct iokit_scsi_request *req, uint32_t *s, char **msg)
 {
 	SCSI_Sense_Data *sense = &req->sense_buffer;
 	uint32_t        sense_value = 0;
 	int             rc = -EDEV_UNKNOWN;
+
+#ifdef QUANTUM_BUILD
+            qtmlog( "sense->ADDITIONAL_SENSE_CODE           = 0x%02X", ( unsigned char )sense->ADDITIONAL_SENSE_CODE );
+            qtmlog( "sense->ADDITIONAL_SENSE_CODE_QUALIFIER = 0x%02X", ( unsigned char )sense->ADDITIONAL_SENSE_CODE_QUALIFIER );
+            qtmlog( "sense->ADDITIONAL_SENSE_LENGTH         = 0x%02X", ( unsigned char )sense->ADDITIONAL_SENSE_LENGTH );
+            qtmlog( "sense->COMMAND_SPECIFIC_INFORMATION_1  = 0x%02X", ( unsigned char )sense->COMMAND_SPECIFIC_INFORMATION_1 );
+            qtmlog( "sense->COMMAND_SPECIFIC_INFORMATION_2  = 0x%02X", ( unsigned char )sense->COMMAND_SPECIFIC_INFORMATION_2 );
+            qtmlog( "sense->COMMAND_SPECIFIC_INFORMATION_3  = 0x%02X", ( unsigned char )sense->COMMAND_SPECIFIC_INFORMATION_3 );
+            qtmlog( "sense->COMMAND_SPECIFIC_INFORMATION_4  = 0x%02X", ( unsigned char )sense->COMMAND_SPECIFIC_INFORMATION_4 );
+            qtmlog( "sense->FIELD_REPLACEABLE_UNIT_CODE     = 0x%02X", ( unsigned char )sense->FIELD_REPLACEABLE_UNIT_CODE );
+            qtmlog( "sense->INFORMATION_1                   = 0x%02X", ( unsigned char )sense->INFORMATION_1 );
+            qtmlog( "sense->INFORMATION_2                   = 0x%02X", ( unsigned char )sense->INFORMATION_2 );
+            qtmlog( "sense->INFORMATION_3                   = 0x%02X", ( unsigned char )sense->INFORMATION_3 );
+            qtmlog( "sense->INFORMATION_4                   = 0x%02X", ( unsigned char )sense->INFORMATION_4 );
+            qtmlog( "sense->SEGMENT_NUMBER                  = 0x%02X", ( unsigned char )sense->SEGMENT_NUMBER );
+            qtmlog( "sense->SENSE_KEY                       = 0x%02X", ( unsigned char )sense->SENSE_KEY );
+            qtmlog( "sense->SENSE_KEY_SPECIFIC_LSB          = 0x%02X", ( unsigned char )sense->SENSE_KEY_SPECIFIC_LSB );
+            qtmlog( "sense->SENSE_KEY_SPECIFIC_MID          = 0x%02X", ( unsigned char )sense->SENSE_KEY_SPECIFIC_MID );
+            qtmlog( "sense->SKSV_SENSE_KEY_SPECIFIC_MSB     = 0x%02X", ( unsigned char )sense->SKSV_SENSE_KEY_SPECIFIC_MSB );
+            qtmlog( "sense->VALID_RESPONSE_CODE             = 0x%02X", ( unsigned char )sense->VALID_RESPONSE_CODE );
+#endif
 
 	sense_value += (uint32_t) ((sense->SENSE_KEY & kSENSE_KEY_Mask) & 0x0F) << 16;
 	sense_value += (uint32_t) (sense->ADDITIONAL_SENSE_CODE) << 8;
@@ -209,6 +280,10 @@ int iokit_issue_cdb_command(struct iokit_device *device,
 		goto free;
 	}
 
+#ifdef QUANTUM_BUILD
+	qtmlogmem( "CDB: ", ( unsigned char * )req->cmdp, ( int )req->cmd_len);
+#endif
+
 	kernelReturn = (*device->task)->ExecuteTaskSync(device->task, &req->sense_buffer,
 													&req->status, &transfer_count);
 	if (kernelReturn != kIOReturnSuccess) {
@@ -220,8 +295,18 @@ int iokit_issue_cdb_command(struct iokit_device *device,
 	req->actual_xfered = transfer_count;
 	req->resid         = req->dxfer_len - transfer_count;
 
+#ifdef QUANTUM_BUILD
+    if ( ( req->actual_xfered <= 256 ) && ( req->actual_xfered > 0 ) )
+    {
+        qtmlogmem( "DATA: ", ( unsigned char *)req->dxferp, req->actual_xfered );
+    }
+#endif
+
 	switch (req->status) {
 		case kSCSITaskStatus_GOOD:
+#ifdef QUANTUM_BUILD
+            ltfsmsg(LTFS_DEBUG, 30805D, "good status");
+#endif
 			ret = DEVICE_GOOD;
 			break;
 		case kSCSITaskStatus_CHECK_CONDITION:

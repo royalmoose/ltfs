@@ -110,6 +110,56 @@ static inline int init_sg_io_header(sg_io_hdr_t *req)
 	return 0;
 }
 
+#ifdef QUANTUM_BUILD
+#define qtmlog(fmt, ...) \
+    do \
+    { \
+        unsigned char *msg; \
+        asprintf( &msg, fmt, ##__VA_ARGS__ ); \
+        ltfsmsg(LTFS_DEBUG, 30392D, msg, ""); \
+        free( msg ); \
+    } \
+    while(0)
+
+static char *_printbytes ( unsigned char *data, int num_bytes)
+{
+    int i = 0, len = 0;
+    char *print_string = NULL;
+
+    print_string = (char*) calloc(num_bytes * 4, sizeof(char));
+    if (print_string == (char *) NULL) {
+        ltfsmsg(LTFS_ERR, 10001E, "_printbytes: temp string data");
+        return NULL;
+
+    } else {
+        for (i = 0, len = 0; i < num_bytes; i++, len += 3) {
+            sprintf(print_string + len, "%2.2X ", *(data + i));
+        }
+        return print_string;
+    }
+}
+
+static void qtmlogmem ( char *prefix, unsigned char *data, int num_bytes)
+{
+    int off = 0;
+    int rem = num_bytes;
+    int act = 0;
+    char *bytes = NULL;
+
+    while( rem )
+    {
+        act = ( rem >= 16 ) ? 16 : rem;
+        bytes = _printbytes( &data[off], act );
+        ltfsmsg(LTFS_DEBUG, 30392D, prefix, bytes);
+        free ( bytes );
+        off += act;
+        rem -= act;
+    }
+
+    return;
+}
+#endif
+
 int sg_issue_cdb_command(struct sg_tape *device, sg_io_hdr_t *req, char **msg);
 int sg_get_drive_identifier(struct sg_tape *device, scsi_device_identifier *id_data);
 
