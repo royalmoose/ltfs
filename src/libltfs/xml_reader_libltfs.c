@@ -113,19 +113,11 @@ static int decode_entry_name(char **new_name, const char *name)
 			tmp_name[j] = (int)strtol(buf_decode, NULL, 16);
 			encoded = false;
 
-			/*
-			 * Allow '/' (0x2f) and US (0x1f) but revert to percent encoded
-			 * string for supporting bad manner writer
-			 */
-			/*
-			 * TODO: Need to remove US (0x1f) from this list. Because
-			 * US shall be accepted as a part of filename.
-			 * Now LTFS rejects US because of a historical issue. (See Issue #106 on GitHub)
-			 */
-			if (tmp_name[j] == '/' || tmp_name[j] == 0x1f) {
+			/* Allow '/' but replace to '%2f' for supporting bad manner writer */
+			if (tmp_name[j] == '/') {
 				tmp_name[j] = '%';
-				tmp_name[j+1] = buf_decode[0];
-				tmp_name[j+2] = buf_decode[1];
+				tmp_name[j+1] = '2';
+				tmp_name[j+2] = 'f';
 				j+=2;
 				ltfsmsg(LTFS_ERR, 17256I, name);
 			}
@@ -136,15 +128,8 @@ static int decode_entry_name(char **new_name, const char *name)
 			i++;
 		}
 
-		/*
-		 * Allow '/' and US (0x1f) but replace to '_' for supporting bad manner writer
-		 */
-		/*
-		 * TODO: Need to remove US (0x1f) from this list. Because
-		 * US shall be accepted as a part of filename.
-		 * Now LTFS rejects US because of a historical issue. (See Issue #106 on GitHub)
-		 */
-		if (tmp_name[j] == '/' || tmp_name[j] == 0x1f) {
+		/* Allow '/' but replace to '_' for supporting bad manner writer */
+		if (tmp_name[j] == '/') {
 			tmp_name[j] = '_';
 			ltfsmsg(LTFS_ERR, 17257I, name);
 		}
